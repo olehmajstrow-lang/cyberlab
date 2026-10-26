@@ -141,7 +141,7 @@ def analyze_login_csv(filename):
 				login_events_by_user.setdefault(username, []).append((event_time, result))
 				if result == "failed":
 					failed_times_by_user.setdefault(username, []).append(event_time)
-				if source_ip:
+				if source_ip and result == "failed":
 					failed_users_by_source_ip.setdefault(source_ip, []).append(
 						(event_time, username)
 					)

@@ -98,6 +98,20 @@ class AnalyzeLoginCsvTests(unittest.TestCase):
 
         mock_print.assert_not_called()
 
+    def test_successful_login_does_not_count_toward_distinct_usernames(self):
+        self.write_events(
+            [
+                self.make_event("jane", "failed", 1),
+                self.make_event("alex", "failed", 2),
+                self.make_event("sam", "success", 3),
+            ]
+        )
+
+        with patch("builtins.print") as mock_print:
+            brute_force.analyze_login_csv(str(self.csv_path))
+
+        mock_print.assert_not_called()
+
     
     def test_three_failed_logins_followed_by_success_prints_alert(self):
         self.write_events(
