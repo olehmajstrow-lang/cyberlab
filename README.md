@@ -7,10 +7,10 @@ A beginner SOC Analyst learning project for practicing basic login-event analysi
 `brute_force.py` evaluates login events using these rules:
 
 1. **Repeated failures for one username:** Alert when one username has five or more failed login attempts within a rolling 10-minute window.
-2. **One source IP targeting multiple usernames:** Alert when a source IP has events against three or more distinct usernames within a rolling 10-minute window. **Implementation limitation:** the current code adds both failed and successful login events with a source IP to this window. As a result, successful events can contribute to the distinct-username count; the implementation does not currently restrict this rule to failed attempts only.
+2. **One source IP targeting multiple usernames:** Alert when one source IP has failed login attempts against three or more distinct usernames within a rolling 10-minute window.
 3. **Failures followed by success:** Alert when at least three failed attempts for one username occur before a successful login for that same username, with those failures falling within the 10-minute window immediately preceding the success.
 
-The first and third rules count failed events, not successful logins. The analyzer also warns about missing required row data, invalid timestamps, and missing CSV files.
+All three rules count failed events where applicable; successful logins do not contribute to failed-attempt thresholds. The analyzer also warns about missing required row data, invalid timestamps, and missing CSV files.
 
 ## Project Files
 
