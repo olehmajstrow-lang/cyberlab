@@ -1,4 +1,5 @@
 import csv
+import logging
 from datetime import datetime, timedelta
 
 
@@ -6,6 +7,13 @@ TIME_FORMAT = "%Y-%m-%d %H:%M:%S"
 WINDOW = timedelta(minutes=10)
 MIN_FAILED_ATTEMPTS = 5
 MIN_DISTINCT_USERNAMES = 3
+ALERT_LEVEL = 45
+logging.addLevelName(ALERT_LEVEL, "ALERT")
+
+
+def _report(message, logger, level):
+	print(message)
+	logger.log(level, message)
 
 
 def generate_test_csv(filename):
@@ -110,7 +118,22 @@ def generate_test_csv(filename):
 		writer.writerows(events)
 
 
-def analyze_login_csv(filename):
+def analyze_login_csv(filename, log_file="soc_alerts.log"):
+	logger = logging.Logger(f"{__name__}.alerts")
+	logger.setLevel(logging.WARNING)
+	handler = logging.FileHandler(log_file, encoding="utf-8")
+	handler.setFormatter(
+		logging.Formatter("%(asctime)s %(levelname)s %(message)s")
+	)
+	logger.addHandler(handler)
+	try:
+		_analyze_login_csv(filename, logger)
+	finally:
+		logger.removeHandler(handler)
+		handler.close()
+
+
+def _analyze_login_csv(filename, logger):
 	failed_times_by_user = {}
 	login_events_by_user = {}
 	failed_users_by_source_ip = {}
@@ -126,7 +149,11 @@ def analyze_login_csv(filename):
 				event_time_text = (row.get("event_time") or "").strip()
 
 				if not username or not result or not event_time_text:
-					print(f"WARNING: row {row_number} is missing required data.")
+					_report(
+						f"WARNING: row {row_number} is missing required data.",
+						logger,
+						logging.WARNING,
+					)
 					continue
 
 				if result not in ("failed", "success"):
@@ -135,7 +162,11 @@ def analyze_login_csv(filename):
 				try:
 					event_time = datetime.strptime(event_time_text, TIME_FORMAT)
 				except ValueError:
-					print(f"WARNING: row {row_number} has an invalid event_time.")
+					_report(
+						f"WARNING: row {row_number} has an invalid event_time.",
+						logger,
+						logging.WARNING,
+					)
 					continue
 
 				login_events_by_user.setdefault(username, []).append((event_time, result))
@@ -146,7 +177,11 @@ def analyze_login_csv(filename):
 						(event_time, username)
 					)
 	except FileNotFoundError:
-		print(f"WARNING: CSV file '{filename}' was not found.")
+		_report(
+			f"WARNING: CSV file '{filename}' was not found.",
+			logger,
+			logging.WARNING,
+		)
 		return
 
 	for username, event_times in failed_times_by_user.items():
@@ -162,9 +197,11 @@ def analyze_login_csv(filename):
 			largest_window_count = max(largest_window_count, attempts_in_window)
 
 		if largest_window_count >= MIN_FAILED_ATTEMPTS:
-			print(
+			_report(
 				f"ALERT: {username} had {largest_window_count} failed login "
-				"attempts within 10 minutes"
+				"attempts within 10 minutes",
+				logger,
+				ALERT_LEVEL,
 			)
 
 	for source_ip, failed_events in failed_users_by_source_ip.items():
@@ -189,10 +226,12 @@ def analyze_login_csv(filename):
 			)
 
 		if largest_distinct_user_count >= MIN_DISTINCT_USERNAMES:
-			print(
+			_report(
 				f"ALERT: source IP {source_ip} had failed login attempts "
 				f"against {largest_distinct_user_count} distinct usernames "
-				"within 10 minutes"
+				"within 10 minutes",
+				logger,
+				ALERT_LEVEL,
 			)
 	# Detect failed logins followed by a successful login.
 	for username, events in login_events_by_user.items():
@@ -211,10 +250,12 @@ def analyze_login_csv(filename):
 			]
 
 			if len(failed_before_success) >= 3:
-				print(
+				_report(
 					f"ALERT: {username} had {len(failed_before_success)} "
 					"failed login attempts followed by a successful login "
-					"within 10 minutes"
+					"within 10 minutes",
+					logger,
+					ALERT_LEVEL,
 				)
 				break
 
